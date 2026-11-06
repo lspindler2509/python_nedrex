@@ -137,7 +137,7 @@ get_disorder_parents.__doc__ = """Returns the ID(s) of nodes that are parents of
 
 """
 
-get_disorder_children = _generate_route("children")
+get_disorder_children = _generate_route("children/")
 get_disorder_children.__name__ = "get_disorder_children"
 get_disorder_children.__doc__ = """Returns the ID(s) of nodes that are children of the input ID(s)
 

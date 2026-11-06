@@ -8,11 +8,11 @@ from typing import List as _List
 from typing import Literal
 from typing import Optional as _Optional
 from typing import Union as _Union
-from urllib.request import urlretrieve
 
 from nedrex import config as _config
 from nedrex._common import check_response as _check_response
 from nedrex._common import check_status_factory as _check_status_factory
+from nedrex._common import download_file as _download_file
 from nedrex._common import http as _http
 
 __all__ = [
@@ -47,7 +47,7 @@ def map_icd10_to_mondo(disorders: _List[str]) -> _Dict[str, _List[str]]:
     params = {"icd10": disorders}
     headers = {"x-api-key": _config.api_key}
 
-    response = _http.get(url, params=params, headers=headers)
+    response = _http.post(url, json=params, headers=headers)
     result: _Dict[str, _List[str]] = _check_response(response)
     return result
 
@@ -80,7 +80,7 @@ def map_mondo_to_icd10(
     params = {"mondo": disorders, "only_3char": only_3char, "exclude_3char": exclude_3char}
     headers = {"x-api-key": _config.api_key}
 
-    response = _http.get(url, params=params, headers=headers)
+    response = _http.post(url, json=params, headers=headers)
     result: _Dict[str, _List[str]] = _check_response(response)
     return result
 
@@ -232,9 +232,9 @@ def download_comorbiditome_build(uid: str, fmt: _Formats, save_path: _Optional[s
     url = f"{_config.url_base}/comorbiditome/download_comorbiditome_build/" f"{uid}/{fmt}/{filename}"
 
     if save_path:
-        urlretrieve(url, save_path)  # nosec
+        _download_file(url, save_path)
         return None
 
-    response = _http.get(url)
+    response = _http.get(url, headers={"x-api-key": _config.api_key})
     result: str = _check_response(response, return_type="text")
     return result

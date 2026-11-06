@@ -3,6 +3,7 @@ from typing import Any as _Any
 from typing import Dict as _Dict
 from typing import List as _List
 from typing import Optional as _Optional
+from urllib.parse import quote as _quote
 
 from nedrex import config as _config
 from nedrex._common import check_response as _check_response
@@ -23,6 +24,7 @@ def build_request(
     disgenet_threshold: float = 0.0,
     use_omim_ids: bool = False,
     split_drug_types: bool = False,
+    reviewed_proteins: _Optional[_List[bool]] = None,
 ) -> str:
     """Submit a build request to NeDRex to build a graph
 
@@ -70,6 +72,8 @@ def build_request(
         Whether or not to use OMIM IDs on disorder nodes instead of MONDO
         IDs (where possible). The default, False, uses MONDO IDs for all
         disorder nodes.
+    reviewed_proteins : list[bool], optional
+        Select reviewed/unreviewed UniProt records; None keeps the server default.
     split_drug_types : bool, optional
         Whether or not to split "Drug" nodes into "SmallMoleculeDrug" and
         "BiotechDrug". The default, False, consolidates all drugs into a
@@ -119,6 +123,9 @@ def build_request(
         "split_drug_types": split_drug_types,
     }
 
+    if reviewed_proteins is not None:
+        body["reviewed_proteins"] = reviewed_proteins
+
     url = f"{_config.url_base}/graph/builder"
     resp = _http.post(url, json=body, headers={"x-api-key": _config.api_key})
     result: str = _check_response(resp)
@@ -148,7 +155,7 @@ def check_build_status(uid: str) -> _Dict[str, _Any]:
     return result
 
 
-def download_graph(uid: str, target: _Optional[str] = None) -> str:
+def download_graph(uid: str, target: _Optional[str] = None, filename: _Optional[str] = None) -> str:
     """Downloads the resultant graph of a submitted graph build job
 
     Parameters
@@ -158,6 +165,8 @@ def download_graph(uid: str, target: _Optional[str] = None) -> str:
     target : str, optional
         The target file path for the downloaded data. If not specified,
         this defaults to <cwd>/<uid>.graphml
+    filename : str, optional
+        Attachment name without .graphml (default: uid, as before).
 
     Returns
     -------
@@ -167,7 +176,8 @@ def download_graph(uid: str, target: _Optional[str] = None) -> str:
     if target is None:
         target = str(_Path(f"{uid}.graphml").resolve())
 
-    url = f"{_config.url_base}/graph/download/{uid}/{uid}.graphml"
+    suffix = _quote(uid, safe="") + "/" + _quote(filename or uid, safe="") + ".graphml"
+    url = f"{_config.url_base}/graph/download/{suffix}"
 
     _download_file(url, target)
     return target

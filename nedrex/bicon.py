@@ -94,3 +94,13 @@ def download_bicon_data(uid: str, target: _Optional[str] = None) -> str:
 
     _download_file(url, target)
     return target
+
+
+def download_bicon_clustermap(uid: str, target: _Optional[str] = None) -> str:
+    """Download a completed job's PNG clustermap; default target is <uid>-clustermap.png."""
+    if target is None:
+        target = str(_Path("{}-clustermap.png".format(uid)).resolve())
+    from urllib.parse import urlencode
+
+    _download_file(_config.url_base + "/bicon/clustermap?" + urlencode({"uid": uid}), target)
+    return target

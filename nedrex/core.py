@@ -10,12 +10,15 @@ from typing import Generator as _Generator
 from typing import List as _List
 from typing import Optional as _Optional
 from typing import cast as _cast
+from urllib.parse import quote as _quote
 
 from nedrex import config as _config
 from nedrex._common import check_pagination_limit as _check_pagination_limit
 from nedrex._common import check_response as _check_response
 from nedrex._common import get_pagination_limit as _get_pagination_limit
 from nedrex._common import http as _http
+from nedrex._common import iter_pages as _iter_pages
+from nedrex._common import request as _request
 from nedrex._decorators import check_url_base as _check_url_base
 from nedrex.exceptions import NeDRexError as _NeDRexError
 
@@ -206,6 +209,7 @@ def get_nodes(
     node_ids: _Optional[_List[str]] = None,
     limit: _Optional[int] = None,
     offset: int = 0,
+    fmt: str = "json",
 ) -> _Any:
     """Returns nodes in NeDRex of the given type
 
@@ -218,7 +222,7 @@ def get_nodes(
         default, None, returns all attributes.
     node_ids : list[str], optional
         A list of IDs of specific nodes to be returned. The default (None)
-        does no filtering by node ID.
+        does no filtering by node ID. Explicit IDs are sent via POST.
     limit : int, optional
         A limit for the number of records to be returned. The default is
         determined by querying the API.
@@ -226,12 +230,17 @@ def get_nodes(
         The number of records to skip before returning records. Default is
         0 (no records skipped).
 
+    fmt : str, optional
+        Output format: json (native data) or tsv (text). Default is json.
+
     Returns
     -------
     list[dict[str, Any]]
-        The nodes in NeDRex returned by the API.
+        The nodes returned by the API; TSV format returns str instead.
     """
     _check_type(node_type, "node")
+    if node_ids or fmt != "json":
+        return _get_attributes(node_type, attributes, node_ids, limit=limit, offset=offset, fmt=fmt)
 
     upper_limit = _get_pagination_limit()
     _check_pagination_limit(limit, upper_limit)
@@ -248,7 +257,12 @@ def get_nodes(
 
 @_check_url_base
 def iter_nodes(
-    node_type: str, attributes: _Optional[_List[str]] = None, node_ids: _Optional[_List[str]] = None
+    node_type: str,
+    attributes: _Optional[_List[str]] = None,
+    node_ids: _Optional[_List[str]] = None,
+    page_size: _Optional[int] = None,
+    offset: int = 0,
+    max_records: _Optional[int] = None,
 ) -> _Generator[_Dict[str, _Any], None, None]:
     """A function that returns a generator to iterate over nodes
 
@@ -264,7 +278,15 @@ def iter_nodes(
         default, None, returns all attributes.
     node_ids : list[str], optional
         A list of IDs of specific nodes to be returned. The default (None)
-        does no filtering by node ID.
+        does no filtering by node ID. Explicit IDs are sent via POST.
+
+
+    page_size : int, optional
+        Records per request (default: instance maximum).
+    offset : int, optional
+        Initial matching-record offset (default: 0).
+    max_records : int, optional
+        Maximum total records to yield; None reads all pages.
 
 
     Yields
@@ -272,29 +294,25 @@ def iter_nodes(
     dict[str, Any]
         A node in NeDRex returned by the API
     """
-
     _check_type(node_type, "node")
-    upper_limit = _get_pagination_limit()
-
-    params: _Dict[str, _Any] = {"node_id": node_ids, "attribute": attributes, "limit": upper_limit}
-
-    offset = 0
-    while True:
-        params["offset"] = offset
-        resp = _http.get(
-            f"{_config.url_base}/{node_type}/attributes/json", params=params, headers={"x-api-key": _config.api_key}
-        )
-
-        data = _check_response(resp)
-        yield from data
-
-        if len(data) < upper_limit:
-            break
-        offset += upper_limit
+    yield from _iter_pages(
+        lambda **page: _get_attributes(node_type, attributes, node_ids, **page),
+        page_size,
+        offset,
+        max_records,
+    )
 
 
 @_check_url_base
-def get_edges(edge_type: str, limit: _Optional[int] = None, offset: _Optional[int] = None) -> _Any:
+def get_edges(
+    edge_type: str,
+    limit: _Optional[int] = None,
+    offset: _Optional[int] = None,
+    attributes: _Optional[_List[str]] = None,
+    source_domain_ids: _Optional[_List[str]] = None,
+    target_domain_ids: _Optional[_List[str]] = None,
+    fmt: str = "json",
+) -> _Any:
     """
     Returns edges in NeDRex of the given type
 
@@ -309,12 +327,30 @@ def get_edges(edge_type: str, limit: _Optional[int] = None, offset: _Optional[in
         The number of records to skip before returning records. Default is
         0 (no records skipped).
 
+    attributes : list[str], optional
+        Select fields via the attributes route; None keeps the existing /all route
+        unless another filter, format or POST option is supplied.
+    source_domain_ids, target_domain_ids : list[str], optional
+        Filter edges by source or target IDs; non-empty ID filters use POST.
+    fmt : str, optional
+        Output format: json (native data) or tsv (text). Default is json.
+
     Returns
     -------
     list[dict[str, Any]]
-        The edges in NeDRex returned by the API.
+        The edges returned by the API; TSV format returns str instead.
     """
     _check_type(edge_type, "edge")
+    if attributes is not None or source_domain_ids is not None or target_domain_ids is not None or fmt != "json":
+        return _get_attributes(
+            edge_type,
+            attributes,
+            source_domain_ids=source_domain_ids,
+            target_domain_ids=target_domain_ids,
+            limit=limit,
+            offset=0 if offset is None else offset,
+            fmt=fmt,
+        )
 
     params = {"limit": limit, "offset": offset, "api_key": _config.api_key}
 
@@ -324,7 +360,15 @@ def get_edges(edge_type: str, limit: _Optional[int] = None, offset: _Optional[in
 
 
 @_check_url_base
-def iter_edges(edge_type: str) -> _Generator[_Dict[str, _Any], None, None]:
+def iter_edges(
+    edge_type: str,
+    page_size: _Optional[int] = None,
+    offset: int = 0,
+    max_records: _Optional[int] = None,
+    attributes: _Optional[_List[str]] = None,
+    source_domain_ids: _Optional[_List[str]] = None,
+    target_domain_ids: _Optional[_List[str]] = None,
+) -> _Generator[_Dict[str, _Any], None, None]:
     """A function that returns a generator to iterate over edges
 
     This function is useful if you wish to get all edges in a particular
@@ -335,22 +379,117 @@ def iter_edges(edge_type: str) -> _Generator[_Dict[str, _Any], None, None]:
     edge_type : str
         The edge type to collect
 
+    page_size : int, optional
+        Records per request (default: instance maximum).
+    offset : int, optional
+        Initial matching-record offset (default: 0).
+    max_records : int, optional
+        Maximum total records to yield; None reads all pages.
+
+    attributes : list[str], optional
+        Select fields; filters have the same meaning as in get_edges.
+    source_domain_ids, target_domain_ids : list[str], optional
+        Filter by source or target IDs on every page.
+
     Yields
     ------
     dict[str, Any]
         An edge in NeDRex returned by the API
     """
     _check_type(edge_type, "edge")
-    upper_limit = _get_pagination_limit()
+    yield from _iter_pages(
+        lambda **page: get_edges(
+            edge_type,
+            attributes=attributes,
+            source_domain_ids=source_domain_ids,
+            target_domain_ids=target_domain_ids,
+            **page,
+        ),
+        page_size,
+        offset,
+        max_records,
+    )
 
-    offset = 0
-    while True:
-        params = {"offset": offset, "limit": upper_limit}
-        resp = _http.get(f"{_config.url_base}/{edge_type}/all", params=params, headers={"x-api-key": _config.api_key})
-        data = _check_response(resp)
 
-        yield from data
+@_check_url_base
+def get_collection_details(collection: str) -> _Any:
+    """Return collection details and counts from /{collection}/details."""
+    return _request("/{}/details".format(_quote(collection, safe="")))
 
-        if len(data) < upper_limit:
-            break
-        offset += upper_limit
+
+@_check_url_base
+def get_attribute_values(collection: str, attribute: str, fmt: str = "json") -> _Any:
+    """Return one attribute for a collection, in the server's json or tsv format.
+
+    This route has no pagination controls; prefer get_nodes/get_edges for bounded calls.
+    JSON returns native data; TSV returns text.
+    """
+    return _request(
+        "/{}/attributes/{}/{}".format(_quote(collection, safe=""), _quote(attribute, safe=""), _quote(fmt, safe="")),
+        return_type="json" if fmt == "json" else "text",
+    )
+
+
+def _get_attributes(
+    collection: str,
+    attributes: _Optional[_List[str]] = None,
+    node_ids: _Optional[_List[str]] = None,
+    source_domain_ids: _Optional[_List[str]] = None,
+    target_domain_ids: _Optional[_List[str]] = None,
+    limit: _Optional[int] = None,
+    offset: int = 0,
+    fmt: str = "json",
+) -> _Any:
+    """Return one filtered attribute page for nodes or edges.
+
+    attributes/node_ids select fields and nodes; source_domain_ids/target_domain_ids
+    select edge endpoints. ID filters automatically use POST (skip=offset).
+    fmt is the native json or tsv format. Iterators use JSON. Unset fields are omitted.
+    """
+    _check_pagination_limit(limit, _get_pagination_limit())
+    if offset < 0:
+        raise _NeDRexError("offset must be non-negative")
+    path = "/{}/attributes/{}".format(_quote(collection, safe=""), _quote(fmt, safe=""))
+    filters = {"source_domain_id": source_domain_ids, "target_domain_id": target_domain_ids, "limit": limit}
+    if node_ids or source_domain_ids or target_domain_ids:
+        filters.update(attributes=attributes or [], node_ids=node_ids, skip=offset)
+        return _request(path, "post", json=filters, return_type="json" if fmt == "json" else "text")
+    filters.update(attribute=attributes, node_id=node_ids, offset=offset)
+    return _request(path, params=filters, return_type="json" if fmt == "json" else "text")
+
+
+@_check_url_base
+def get_by_id(collection: str, query: str) -> _Any:
+    """Look up one primary/external ID using the public API's path-based route.
+
+    IDs must carry their namespace (e.g. uniprot.P00533); bare identifiers return an
+    empty list.
+    """
+    return _request("/get_by_id/{}/{}".format(_quote(collection, safe=""), _quote(query, safe="")))
+
+
+@_check_url_base
+def find_by_ids(collection: str, node_ids: _List[str]) -> _Any:
+    """Bulk lookup via POST /find_by_ids/ (public API; not available on every instance)."""
+    return _request("/find_by_ids/", "post", json={"collection_name": collection, "id_list": node_ids})
+
+
+@_check_url_base
+def map_ids(collection: str, identifiers: _List[str]) -> _Any:
+    """Map namespaced identifiers (e.g. uniprot.P00533) to primaryDomainId lists.
+
+    Ambiguous matches and nulls for unknown identifiers are retained from the API.
+    """
+    return _request("/id_map/{}".format(_quote(collection, safe="")), params={"q": identifiers})
+
+
+@_check_url_base
+def entrez_to_uniprot_id(query: str) -> _Any:
+    """Map one Entrez identifier via GET /entrez_to_uniprot_id (public API)."""
+    return _request("/entrez_to_uniprot_id", params={"q": query})
+
+
+@_check_url_base
+def entrez_to_uniprot_ids(ids: _List[str]) -> _Any:
+    """Map multiple Entrez identifiers via POST /entrez_to_uniprot_ids (public API)."""
+    return _request("/entrez_to_uniprot_ids", "post", json={"ids": ids})

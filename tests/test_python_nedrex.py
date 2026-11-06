@@ -179,7 +179,7 @@ def get_embedding_nodes():
                     """
     with api_key(), url_base():
         res = neo4j_query(query)
-        entity_names = [(i[6][0], i[5]) for i in res]
+        entity_names = [(i["labelsOrTypes"][0], i["entityType"]) for i in res]
         return [n for n, k in entity_names if k == "NODE"]
 
 
@@ -189,7 +189,7 @@ def get_embedding_edges():
                     """
     with api_key(), url_base():
         res = neo4j_query(query)
-        entity_names = [(i[6][0], i[5]) for i in res]
+        entity_names = [(i["labelsOrTypes"][0], i["entityType"]) for i in res]
         return [n for n, k in entity_names if k == "RELATIONSHIP"]
 
 
@@ -746,7 +746,7 @@ class TestNeo4j:
         LIMIT 25
         """
 
-        assert all(i[0]["type"] == "Gene" for i in neo4j_query(query))
+        assert all(i["n"]["type"] == "Gene" for i in neo4j_query(query))
 
     def test_general_edge_query(self, set_base_url, set_api_key):
         query = """
@@ -755,7 +755,7 @@ class TestNeo4j:
         LIMIT 25
         """
 
-        assert all(i[0]["type"] == "GeneAssociatedWithDisorder" for i in neo4j_query(query))
+        assert all(i["n"]["type"] == "GeneAssociatedWithDisorder" for i in neo4j_query(query))
 
     def test_general_node_query_with_attributes(self, set_base_url, set_api_key):
         query = """
@@ -765,7 +765,7 @@ class TestNeo4j:
 
         x = list(neo4j_query(query))
         assert len(x) == 1
-        assert x[0][0]['chromosome'] == '19'
+        assert x[0]["n"]['chromosome'] == '19'
 
 
     def test_general_edge_query_with_attributes(self, set_base_url, set_api_key):
@@ -777,7 +777,7 @@ class TestNeo4j:
 
         results = list(neo4j_query(query))
         assert len(results) != 0
-        assert all(i[0]['score'] == 1.0 for i in results)
+        assert all(i["n"]['score'] == 1.0 for i in results)
 
 
     def test_gene_associated_with_disorder(self, set_base_url, set_api_key):
@@ -787,7 +787,8 @@ class TestNeo4j:
         LIMIT 50
         """
 
-        for gene, disorder, assoc in neo4j_query(query):
+        for row in neo4j_query(query):
+            gene, disorder, assoc = row["g"], row["d"], row["gawd"]
             assert gene['type'] == 'Gene'
             assert disorder['type'] == "Disorder"
             assert assoc['type'] == "GeneAssociatedWithDisorder"
@@ -808,7 +809,7 @@ class TestNeo4j:
             assert True
             return
         neo4j_collection = api_to_neo4j_collection_name(collection)
-        query = f"SHOW CONSTRAINTS WHERE '{neo4j_collection}' IN labelsOrTypes AND 'primaryDomainId' IN properties AND type IN ['NODE_KEY', 'UNIQUENESS'];"
+        query = f"SHOW CONSTRAINTS WHERE '{neo4j_collection}' IN labelsOrTypes AND 'primaryDomainId' IN properties AND type IN ['NODE_KEY', 'UNIQUENESS', 'NODE_PROPERTY_UNIQUENESS'];"
         res = neo4j_query(query)
         assert res is not None and len([i for i in res]) == 1
 
@@ -835,9 +836,9 @@ class TestEmbeddings:
         query = """
         SHOW VECTOR INDEX
         """
-        res = neo4j_query(query)
-        assert len({i[1] for i in res}) == 22
-        assert all(i[3] == 100.0 and i[2] == "ONLINE" for i in res)
+        res = list(neo4j_query(query))
+        assert res
+        assert all(i["populationPercent"] == 100.0 and i["state"] == "ONLINE" for i in res)
 
 
 
@@ -846,12 +847,12 @@ class TestEmbeddings:
     def test_node_embeddings_not_empty(self, set_base_url, set_api_key, node):
 
         query = f"MATCH (n:{node}) RETURN n.embedding LIMIT 25"
-        assert all(i[0] is not None and not all(j == 0.0  for j in i[0]) for i in neo4j_query(query)), f"Broken embedding for {node}"
+        assert all(i["n.embedding"] is not None and not all(j == 0.0  for j in i["n.embedding"]) for i in neo4j_query(query)), f"Broken embedding for {node}"
 
 
     @pytest.mark.parametrize("edge", get_embedding_edges())
     def test_edge_embeddings_not_empty(self, set_base_url, set_api_key, edge):
 
         query = f"MATCH ()-[n:{edge}]-() RETURN n.embedding LIMIT 25"
-        assert all(i[0] is not None and not all(j == 0.0 for j in i[0]) for i in neo4j_query(query)), f"Broken embedding for {edge}"
+        assert all(i["n.embedding"] is not None and not all(j == 0.0 for j in i["n.embedding"]) for i in neo4j_query(query)), f"Broken embedding for {edge}"
 

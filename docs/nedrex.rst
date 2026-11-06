@@ -60,6 +60,14 @@ nedrex.domino module
    :undoc-members:
    :show-inheritance:
 
+nedrex.embeddings module
+------------------------
+
+.. automodule:: nedrex.embeddings
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 nedrex.exceptions module
 ------------------------
 
@@ -128,6 +136,14 @@ nedrex.static module
 --------------------
 
 .. automodule:: nedrex.static
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+nedrex.translate module
+-----------------------
+
+.. automodule:: nedrex.translate
    :members:
    :undoc-members:
    :show-inheritance:

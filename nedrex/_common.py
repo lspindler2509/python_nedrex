@@ -1,5 +1,5 @@
 import urllib.request
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Generator, Optional
 
 import cachetools
 import requests  # type: ignore
@@ -49,7 +49,8 @@ def check_response(resp: requests.Response, return_type: str = "json") -> Any:
         raise NeDRexError(data["detail"])
 
     if resp.status_code == 404:
-        raise NeDRexError("not found")
+        method = resp.request.method if resp.request is not None else "GET"
+        raise NeDRexError(f"HTTP 404 for {method} {resp.url}")
 
     if return_type == "json":
         data = resp.json()
@@ -86,6 +87,50 @@ def download_file(url: str, target: str) -> None:
         if err.code == 404:
             raise NeDRexError("not found") from err
         raise NeDRexError("unexpected failure") from err
+
+
+def request(path: str, method: str = "get", return_type: str = "json", **kwargs: Any) -> Any:
+    """Request a route relative to the configured instance, omitting unset fields."""
+    if config.url_base is None:
+        raise ConfigError("API URL is not set in the config")
+    for key in ("params", "json"):
+        if isinstance(kwargs.get(key), dict):
+            kwargs[key] = {k: v for k, v in kwargs[key].items() if v is not None}
+    response = http.request(method, config.url_base + path, headers={"x-api-key": config.api_key}, **kwargs)
+    return check_response(response, return_type)
+
+
+def iter_pages(
+    fetch: Callable[..., Any],
+    page_size: Optional[int] = None,
+    offset: int = 0,
+    max_records: Optional[int] = None,
+) -> Generator[Dict[str, Any], None, None]:
+    """Iterate offset/limit pages, optionally bounding the total output."""
+    if isinstance(offset, bool) or not isinstance(offset, int) or offset < 0:
+        raise NeDRexError("offset must be a non-negative integer")
+    if max_records is not None and (
+        isinstance(max_records, bool) or not isinstance(max_records, int) or max_records < 0
+    ):
+        raise NeDRexError("max_records must be a non-negative integer")
+    if max_records == 0:
+        return
+    upper = get_pagination_limit()
+    if page_size is not None and (isinstance(page_size, bool) or not isinstance(page_size, int) or page_size <= 0):
+        raise NeDRexError("page_size must be a positive integer")
+    check_pagination_limit(page_size, upper)
+    size = upper if page_size is None else page_size
+    count = 0
+    while max_records is None or count < max_records:
+        limit = size if max_records is None else min(size, max_records - count)
+        data = fetch(offset=offset, limit=limit)
+        if not isinstance(data, list) or len(data) > limit:
+            raise NeDRexError("Expected a list containing at most the requested page size")
+        yield from data
+        if len(data) < limit:
+            return
+        count += len(data)
+        offset += len(data)
 
 
 def check_status_factory(url_suffix: str) -> Callable[[str], Dict[str, Any]]:

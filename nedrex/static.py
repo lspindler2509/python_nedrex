@@ -10,6 +10,7 @@ from nedrex import config as _config
 from nedrex._common import check_response as _check_response
 from nedrex._common import download_file as _download_file
 from nedrex._common import http as _http
+from nedrex._common import request as _request
 
 
 def get_metadata() -> _Dict[str, _Any]:
@@ -60,3 +61,13 @@ def download_lengths_map(target: _Optional[str] = None) -> None:
     url = f"{_config.url_base}/static/lengths.map"
 
     _download_file(url, target)
+
+
+def get_icd10_omim_map() -> str:
+    """Return the static ICD-10 to OMIM mapping as tab-separated text (not JSON)."""
+    return _request("/static/icd10_omim_map", return_type="text")
+
+
+def get_icd10_mondo_map() -> str:
+    """Return the static ICD-10 to MONDO mapping as tab-separated text (not JSON)."""
+    return _request("/static/icd10_mondo_map", return_type="text")

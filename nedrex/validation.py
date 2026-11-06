@@ -3,6 +3,8 @@
 """
 
 from typing import List as _List
+from typing import Tuple as _Tuple
+from typing import Union as _Union
 
 from nedrex import config as _config
 from nedrex._common import check_response as _check_response
@@ -140,14 +142,18 @@ def module_validation_submit(
 
 
 def drug_validation_submit(
-    test_drugs: _List[str], true_drugs: _List[str], permutations: int, only_approved_drugs: bool = True
+    test_drugs: _Union[_List[str], _List[_Tuple[str, float]]],
+    true_drugs: _List[str],
+    permutations: int,
+    only_approved_drugs: bool = True,
 ) -> str:
     """Validation of drug lists computed by NeDRex
 
     Parameters
     ----------
-    test_drugs : list[str]
-        The drugs that were predicted by a NeDRex drug repurposing algorithm
+    test_drugs : list[str] or list[tuple[str, float]]
+        Drug IDs for legacy servers, or ID/score pairs for current servers,
+        e.g. [("DB00001", 0.5)]. Passed through without changing their meaning.
     true_drugs : list[str]
         A list of drugs that are indicated for the disorder
     permutations : int
