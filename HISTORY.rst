@@ -2,6 +2,30 @@
 History
 =======
 
+0.2.0 (unreleased)
+------------------
+
+* **Breaking:** renamed ``relations.get_drugs_targetting_proteins`` to
+  ``get_drugs_targeting_proteins`` and ``get_drugs_targetting_gene_products`` to
+  ``get_drugs_targeting_gene_products``. The old names are removed without alias.
+* Relation calls use POST with ``{"nodes": [...]}`` bodies, matching the current
+  API; the previous GET requests to the misspelled routes returned HTTP 404.
+* Errors for HTTP 404 now report the request method and URL.
+* Added ``request`` and ``iter_pages`` helpers and ``core`` lookup, mapping and
+  attribute functions for the public API routes.
+* Added ``embeddings`` (``get_available``, ``query``). ``query`` rejects unknown
+  collection names (case-sensitive) before sending the request.
+* Added ``translate`` (``translate_entrez``, ``translate_uniprot``).
+* Added ``comorbiditome`` ICD-10/MONDO mapping routes and ``disorder`` hierarchy
+  and ICD-10 search functions.
+* Added ``static.get_icd10_mondo_map`` and ``static.get_icd10_omim_map``, which
+  return the server's tab-separated text.
+
+0.1.4
+-----
+
+* Previous release on PyPI.
+
 0.1.0 (2022-02-23)
 ------------------
 

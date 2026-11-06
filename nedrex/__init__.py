@@ -2,7 +2,7 @@
 
 __author__ = """David James Skelton"""
 __email__ = "james.skelton@newcastle.ac.uk"
-__version__ = "0.1.4"
+__version__ = "0.2.0"
 
 from typing import Optional
 
