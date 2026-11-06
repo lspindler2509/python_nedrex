@@ -138,6 +138,8 @@ def capture(monkeypatch):
             data = ["drug_has_target"]
         elif path.endswith("api_key_setting"):
             data = False
+        elif path.endswith("embeddings/available"):
+            data = ["Protein"]
         response = requests.Response()
         response.status_code = 200
         response._content = json.dumps(data).encode()
@@ -249,7 +251,7 @@ def test_supported_public_operations_have_request_contracts(capture, tmp_path):
     comorbiditome.check_comorbiditome_status("job")
     comorbiditome.download_comorbiditome_build("job", "tsv")
     embeddings.get_available()
-    embeddings.query("EGFR", "protein", 1)
+    embeddings.query("EGFR", "Protein", 1)
     translate.translate_entrez(["EGFR"])
     translate.translate_uniprot(["EGFR"])
     assert capture[0] == EXPECTED_ROUTES
@@ -316,6 +318,13 @@ def test_iterators_preserve_filters(capture, monkeypatch, iterator, filters):
     b = calls[1][2].get("json", calls[1][2].get("params", {}))
     key = "skip" if "skip" in a else "offset"
     assert a[key] == 4 and b[key] == 5
+
+
+def test_embeddings_query_rejects_unknown_collection(capture):
+    # collection names are case-sensitive; the query itself must not be sent
+    with pytest.raises(NeDRexError, match="Protein"):
+        embeddings.query("EGFR", "protein", 1)
+    assert [path for _, path, _ in capture[1]] == ["/open/embeddings/available"]
 
 
 @pytest.mark.parametrize("status", [401, 404, 422])
