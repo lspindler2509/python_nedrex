@@ -1,3 +1,4 @@
+import warnings as _warnings
 from typing import Dict as _Dict
 from typing import Iterable as _Iterable
 from typing import List as _List
@@ -150,3 +151,23 @@ def get_drugs_targeting_gene_products(gene_list: _Iterable[_Union[int, str]]) ->
     resp = _http.post(url, json={"nodes": genes}, headers={"x-api-key": _config.api_key})
     result: _Dict[str, _List[str]] = _check_response(resp)
     return result
+
+
+def get_drugs_targetting_proteins(protein_list: _Iterable[str]) -> _Dict[str, _List[str]]:
+    """Deprecated alias for get_drugs_targeting_proteins (misspelled name used in 0.1.4)."""
+    _warnings.warn(
+        "get_drugs_targetting_proteins is deprecated; use get_drugs_targeting_proteins",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return get_drugs_targeting_proteins(protein_list)
+
+
+def get_drugs_targetting_gene_products(gene_list: _Iterable[_Union[int, str]]) -> _Dict[str, _List[str]]:
+    """Deprecated alias for get_drugs_targeting_gene_products (misspelled name used in 0.1.4)."""
+    _warnings.warn(
+        "get_drugs_targetting_gene_products is deprecated; use get_drugs_targeting_gene_products",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return get_drugs_targeting_gene_products(gene_list)

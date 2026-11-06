@@ -5,9 +5,10 @@ History
 0.2.0 (unreleased)
 ------------------
 
-* **Breaking:** renamed ``relations.get_drugs_targetting_proteins`` to
+* Renamed ``relations.get_drugs_targetting_proteins`` to
   ``get_drugs_targeting_proteins`` and ``get_drugs_targetting_gene_products`` to
-  ``get_drugs_targeting_gene_products``. The old names are removed without alias.
+  ``get_drugs_targeting_gene_products``. The old names remain as deprecated
+  aliases that emit a ``DeprecationWarning``.
 * Relation calls use POST with ``{"nodes": [...]}`` bodies, matching the current
   API; the previous GET requests to the misspelled routes returned HTTP 404.
 * Errors for HTTP 404 now report the request method and URL.
