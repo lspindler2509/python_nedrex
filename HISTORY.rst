@@ -19,6 +19,9 @@ History
 * Added ``translate`` (``translate_entrez``, ``translate_uniprot``).
 * Added ``comorbiditome`` ICD-10/MONDO mapping routes and ``disorder`` hierarchy
   and ICD-10 search functions.
+* ``ppi.ppis`` uses POST and accepts the API's filters (``reviewed_proteins``,
+  protein window, ``nodes``, ``sources``, ``num_sources`` and methods-score
+  cutoffs). Added ``ppi.iter_ppis``, which pages through all matching PPIs.
 * Added ``ppi.ppi_network``, which downloads all matching PPIs as a deduplicated,
   undirected edge list of UniProt accessions, optionally in a compact
   ``{"nodes", "edges"}`` format with positions.
