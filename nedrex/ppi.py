@@ -139,3 +139,72 @@ def iter_ppis(
         skip,
         max_records,
     )
+
+
+def ppi_network(
+    evidence: _Iterable[str] = ("exp",),
+    reviewed_proteins: _Optional[_Iterable[bool]] = None,
+    skip_proteins: _Optional[int] = 0,
+    limit_proteins: _Optional[int] = 250000,
+    nodes: _Optional[_List[str]] = None,
+    sources: _Optional[_List[str]] = None,
+    num_sources: _Optional[int] = None,
+    hippie_methods_score_cutoff: _Optional[float] = None,
+    methods_score_cutoff: _Optional[float] = None,
+    page_size: _Optional[int] = None,
+    skip: int = 0,
+    max_records: _Optional[int] = None,
+    compact: bool = False,
+) -> _Any:
+    """Download all matching PPIs as an undirected edge list of UniProt accessions.
+
+    Pages through the PPIs like iter_ppis, with the same filters, but keeps only the
+    interacting proteins: the "uniprot." prefix is removed, self-loops are dropped and
+    each pair appears once regardless of direction. Pages are processed one at a time,
+    so the full PPI records are not kept in memory.
+
+    Parameters
+    ----------
+    compact : bool, optional
+        If False (default), returns [{"from": ..., "to": ...}, ...]. If True, returns
+        {"nodes": [...], "edges": [[i, j], ...]} with positions in "nodes", about a
+        third of the size for large networks.
+
+    Other parameters have the same meaning as in ppis and iter_ppis; skip and
+    max_records count downloaded PPI records, not the returned edges. A protein
+    window (skip_proteins, limit_proteins) only returns edges with both proteins
+    inside it, so the network then lacks the edges between windows.
+
+    Returns
+    -------
+    list[dict[str, str]] or dict[str, list]
+        Edges sorted by accession.
+    """
+
+    def accession(member: str) -> str:
+        return member[len("uniprot.") :] if member.startswith("uniprot.") else member
+
+    pairs = set()
+    for record in iter_ppis(
+        evidence,
+        reviewed_proteins,
+        skip_proteins=skip_proteins,
+        limit_proteins=limit_proteins,
+        nodes=nodes,
+        sources=sources,
+        num_sources=num_sources,
+        hippie_methods_score_cutoff=hippie_methods_score_cutoff,
+        methods_score_cutoff=methods_score_cutoff,
+        page_size=page_size,
+        skip=skip,
+        max_records=max_records,
+    ):
+        a, b = accession(record["memberOne"]), accession(record["memberTwo"])
+        if a != b:
+            pairs.add((a, b) if a < b else (b, a))
+    edges = sorted(pairs)
+    if not compact:
+        return [{"from": a, "to": b} for a, b in edges]
+    positions: _Dict[str, int] = {}
+    indexed = [[positions.setdefault(a, len(positions)), positions.setdefault(b, len(positions))] for a, b in edges]
+    return {"nodes": list(positions), "edges": indexed}

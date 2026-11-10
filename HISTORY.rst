@@ -19,6 +19,9 @@ History
 * Added ``translate`` (``translate_entrez``, ``translate_uniprot``).
 * Added ``comorbiditome`` ICD-10/MONDO mapping routes and ``disorder`` hierarchy
   and ICD-10 search functions.
+* Added ``ppi.ppi_network``, which downloads all matching PPIs as a deduplicated,
+  undirected edge list of UniProt accessions, optionally in a compact
+  ``{"nodes", "edges"}`` format with positions.
 * Added ``static.get_icd10_mondo_map`` and ``static.get_icd10_omim_map``, which
   return the server's tab-separated text.
 

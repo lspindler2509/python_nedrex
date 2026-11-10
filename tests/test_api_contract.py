@@ -395,3 +395,34 @@ def test_queries_select_method_from_id_filters(capture, kind, filtered, fmt):
         assert payload["target_domain_id"] == ["uniprot.P00533"]
     elif filtered:
         assert payload["node_ids"] == ["uniprot.P00533"]
+
+
+def test_ppi_network_deduplicates_and_supports_compact(monkeypatch):
+    records = [
+        {"memberOne": "uniprot.P2", "memberTwo": "uniprot.P1"},
+        {"memberOne": "uniprot.P1", "memberTwo": "uniprot.P2"},
+        {"memberOne": "uniprot.P3", "memberTwo": "uniprot.P3"},
+        {"memberOne": "uniprot.P1", "memberTwo": "uniprot.P3"},
+    ]
+    seen = {}
+
+    def fake_iter(evidence, reviewed_proteins, **kwargs):
+        seen.update(kwargs, evidence=evidence)
+        return iter(records)
+
+    monkeypatch.setattr(ppi, "iter_ppis", fake_iter)
+    assert ppi.ppi_network(
+        sources=["intact"], max_records=4, skip=2, nodes=["uniprot.P1"], skip_proteins=1, limit_proteins=9
+    ) == [
+        {"from": "P1", "to": "P2"},
+        {"from": "P1", "to": "P3"},
+    ]
+    assert {k: seen[k] for k in ("sources", "max_records", "skip", "nodes", "skip_proteins", "limit_proteins")} == {
+        "sources": ["intact"],
+        "max_records": 4,
+        "skip": 2,
+        "nodes": ["uniprot.P1"],
+        "skip_proteins": 1,
+        "limit_proteins": 9,
+    }
+    assert ppi.ppi_network(compact=True) == {"nodes": ["P1", "P2", "P3"], "edges": [[0, 1], [0, 2]]}
