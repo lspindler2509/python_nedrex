@@ -61,7 +61,10 @@ def check_response(resp: requests.Response, return_type: str = "json") -> Any:
     return data
 
 
-@cachetools.cached(cachetools.TTLCache(1, ttl=10))
+_pagination_limit_cache: cachetools.TTLCache = cachetools.TTLCache(1, ttl=10)
+
+
+@cachetools.cached(_pagination_limit_cache)
 def get_pagination_limit() -> Any:
     url = f"{config.url_base}/pagination_max"
     return requests.get(url, headers={"x-api-key": config.api_key}).json()

@@ -115,7 +115,7 @@ def capture(monkeypatch):
     old = config.url_base, config.api_key
     config.set_url_base("https://example.org/open")
     config.set_api_key("test-key")
-    _common.get_pagination_limit.cache.clear()
+    _common._pagination_limit_cache.clear()
     seen = set()
     calls = []
 
@@ -159,7 +159,7 @@ def capture(monkeypatch):
     monkeypatch.setattr(_common.urllib.request, "urlretrieve", retrieve)
     yield seen, calls
     config._url_base, config._api_key = old
-    _common.get_pagination_limit.cache.clear()
+    _common._pagination_limit_cache.clear()
 
 
 def test_supported_public_operations_have_request_contracts(capture, tmp_path):
